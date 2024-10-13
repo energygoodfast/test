@@ -1,0 +1,97 @@
+
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <title>Голос в текст з перекладом</title>
+</head>
+<body>
+    <h1>Голос в текст з перекладом</h1>
+    <label for="language">Виберіть мову:</label>
+    <select id="language">
+        <option value="en-US">ENG</option>
+        <option value="uk-UA">UA</option>
+        <option value="ru-RU">RU</option>
+    </select>
+    <button id="start">Почати запис</button>
+    <button id="stop">Зупинити запис</button>
+    <textarea id="text" rows="10" cols="100"></textarea>
+    <textarea id="translatedText" rows="10" cols="100" readonly></textarea>
+
+    <script>
+        const startBtn = document.getElementById('start');
+        const stopBtn = document.getElementById('stop');
+        const textArea = document.getElementById('text');
+        const translatedTextArea = document.getElementById('translatedText');
+        const languageSelect = document.getElementById('language');
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+
+        recognition.interimResults = true;
+        recognition.continuous = true;
+
+        let finalTranscript = '';
+        let isRecognitionActive = false;
+
+        recognition.onresult = function(event) {
+            let interimTranscript = '';
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                if (event.results[i].isFinal) {
+                    finalTranscript += event.results[i][0].transcript + ' ';
+                } else {
+                    interimTranscript += event.results[i][0].transcript;
+                }
+            }
+            textArea.value = finalTranscript + interimTranscript;
+            translateText(finalTranscript + interimTranscript, 'uk'); // Автоматичний переклад
+        };
+
+        recognition.onend = function() {
+            if (isRecognitionActive) {
+                recognition.start();
+            }
+        };
+
+        function updateRecognitionLanguage() {
+            if (isRecognitionActive) {
+                recognition.stop();
+                setTimeout(() => {
+                    recognition.lang = languageSelect.value;
+                    recognition.start();
+                }, 100);
+            } else {
+                recognition.lang = languageSelect.value;
+            }
+        }
+
+        startBtn.addEventListener('click', () => {
+            if (!isRecognitionActive) {
+                recognition.lang = languageSelect.value;
+                recognition.start();
+                isRecognitionActive = true;
+            }
+        });
+
+        stopBtn.addEventListener('click', () => {
+            if (isRecognitionActive) {
+                recognition.stop();
+                isRecognitionActive = false;
+            }
+        });
+
+        languageSelect.addEventListener('change', updateRecognitionLanguage);
+
+        async function translateText(text, targetLang) {
+            try {
+                const response = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=' + targetLang + '&dt=t&q=' + encodeURIComponent(text));
+                const result = await response.json();
+                translatedTextArea.value = result[0].map(item => item[0]).join('');
+            } catch (error) {
+                console.error('Помилка перекладу:', error);
+                translatedTextArea.value = 'Помилка перекладу';
+            }
+        }
+    </script>
+</body>
+</html>
